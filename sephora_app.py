@@ -5,12 +5,22 @@ import os
 from PIL import Image
 import numpy as np
 
+# Helper function for file paths
+def get_file_path(relative_path):
+    """Get absolute file path relative to the script location"""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(script_dir, relative_path)
+
 # Set page title and layout
 st.set_page_config(page_title="Skincare Product Recommendation System", layout="wide")
 
 # Load your data and model
-skincare_df = pd.read_csv('/Users/amina/projects/sephora-recommendation/skincare_df.csv', low_memory=False)
-model = joblib.load('/Users/amina/projects/sephora-recommendation/sephora_model_1.pkl')
+try:
+    skincare_df = pd.read_csv(get_file_path('skincare_df.csv'), low_memory=False)
+    model = joblib.load(get_file_path('sephora_model_1.pkl'))
+except Exception as e:
+    st.error(f"Error loading data or model: {e}")
+    st.stop()
 
 # Define background color and general styling
 def set_styling():
@@ -85,7 +95,7 @@ def display_skin_tone_option(col, tone_name, display_name):
     with col:
         try:
             # Check if image exists and display it
-            image_path = f"/Users/amina/projects/sephora-recommendation/assets/skin_tones/{tone_name}.jpg"
+            image_path = get_file_path(f"assets/skin_tones/{tone_name}.jpg")
             if os.path.exists(image_path):
                 img = Image.open(image_path)
                 st.image(img, width=100, caption=display_name)
@@ -280,21 +290,27 @@ def get_recommendations(user_skin_type, user_skin_tone, user_budget_category):
     return recommendations[['product_name', 'predicted_rating']]
 
 # Center content
+# In the center_col section
 with center_col:
     if not st.session_state.get_recommendations_clicked:
-        st.image("/Users/amina/projects/sephora-recommendation/skinsync.gif", use_column_width=True)
+        st.image(get_file_path("skinsync.gif"), use_column_width=True)
     else:
         # Recommendation logic
         st.markdown("## Your Top Recommendations")
         
-        recommendations = get_recommendations(user_skin_type, user_skin_tone, user_budget_category)
-        
-        if 'message' in recommendations.columns:
-            st.write(recommendations['message'][0])
-        else:
-            st.write('Top 3 Recommendations:')
-            # Enhanced display of recommendations
-            for i, (index, row) in enumerate(recommendations.iterrows()):
-                st.markdown(f"### {i+1}. {row['product_name']}")
-                st.markdown(f"Predicted Rating: {row['predicted_rating']:.2f}/5")
-                st.markdown("---")
+        try:
+            recommendations = get_recommendations(user_skin_type, user_skin_tone, user_budget_category)
+            
+            if 'message' in recommendations.columns:
+                st.write(recommendations['message'][0])
+            elif recommendations.empty:
+                st.warning("No recommendations found for your criteria. Try adjusting your selections.")
+            else:
+                st.write('Top 3 Recommendations:')
+                # Enhanced display of recommendations
+                for i, (index, row) in enumerate(recommendations.iterrows()):
+                    st.markdown(f"### {i+1}. {row['product_name']}")
+                    st.markdown(f"Predicted Rating: {row['predicted_rating']:.2f}/5")
+                    st.markdown("---")
+        except Exception as e:
+            st.error(f"Error generating recommendations: {e}")
